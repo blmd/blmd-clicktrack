@@ -1,17 +1,18 @@
 <?php
 /*
 Plugin Name: BLMD Clicktrack
-Plugin URI: http://github.com/blmd/blmd-clicktrack
+Plugin URI: https://github.com/blmd/blmd-clicktrack
 Description: Click tracking plugin
 Author: blmd
-Author URI: http://github.com/blmd
-Version: 0.1
+Author URI: https://github.com/blmd
+Version: 0.2
 
-Depends: IP Delivery
+Recommends: IP Delivery
+GitHub Plugin URI: https://github.com/blmd/blmd-clicktrack
 */
 
 !defined( 'ABSPATH' ) && die;
-define( 'BLMD_CLICKTRACK_VERSION', '0.1' );
+define( 'BLMD_CLICKTRACK_VERSION', '0.2' );
 define( 'BLMD_CLICKTRACK_URL', plugin_dir_url( __FILE__ ) );
 define( 'BLMD_CLICKTRACK_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BLMD_CLICKTRACK_BASENAME', plugin_basename( __FILE__ ) );
@@ -46,6 +47,7 @@ class BLMD_CLicktrack {
 		register_activation_hook( __FILE__, array( $this, 'activation_hook' ) );
 		register_deactivation_hook( __FILE__, array( $this, 'deactivation_hook' ) );
 		add_action( 'init', array( $this, 'init' ) );
+		add_action( 'admin_footer', array( $this, 'admin_footer' ) );
 		add_filter( 'robots_txt', array( $this, 'robots_txt' ), 10, 2 );
 		add_filter( 'template_redirect', array( $this, 'template_redirect' ) );
 		add_filter( 'update_option_blmd_clicktrack_slug', array( $this, 'update_option_blmd_clicktrack_slug' ), 10, 2 );
@@ -97,6 +99,13 @@ class BLMD_CLicktrack {
 		$this->set_oreferer_cookie();
 		$this->add_rewrite_rules();
 	}
+	
+	public function admin_footer() {
+		if ( class_exists( 'IP_Delivery' ) ) { return; }
+		echo '<div class="error">';
+		echo '<p><strong>BLMD Clicktrack Error.</strong> IP Delivery plugin not found. No IP filtering enabled for bot protection.</p>';
+		echo '</div>';
+	}
 
 	public function robots_txt( $out, $pub ) {
 		$click_slug     = get_option( 'blmd_clicktrack_slug' );
@@ -119,22 +128,22 @@ class BLMD_CLicktrack {
 		if ( empty( $click_id ) ) return;
 
 		$wp_query->is_404 = false;
-		if ( !class_exists( 'IP_Delivery' ) ) {
-			wp_die( "503 Service Unavailable", "503 Service Unavailable", array( 'response'=>503, 'back_link'=>true ) );
-		}
+		// if ( !class_exists( 'IP_Delivery' ) ) {
+		// 	wp_die( "503 Service Unavailable", "503 Service Unavailable", array( 'response'=>503, 'back_link'=>true ) );
+		// }
 		
 		$deny = false;
-		// $ipd2 =  ipd_get();
-		if ( IP_Delivery()->type != 'ADMIN' ) {
+		if ( empty( $_SERVER['HTTP_REFERER'] ) ) { $deny = true; }
+		if ( class_exists( 'IP_Delivery' ) ) {
 			if ( !empty( IP_Delivery()->warning ) ) { $deny = true; }
-			if ( empty( $_SERVER['HTTP_REFERER'] ) ) { $deny = true; }
 			if ( IP_Delivery()->type == 'CRAWLER' ) { $deny = true; }
 			if ( IP_Delivery()->agenttype == 'webpreview' ) { $deny = true; }
 			if ( IP_Delivery()->iscrawleragent==1 || IP_Delivery()->isbrowseragent==0 ) { $deny = true; }
+			if ( IP_Delivery()->type == 'ADMIN' ) { $deny = false; }
+		}
 			// $page_ref_host = @parse_url($this->http_referer, PHP_URL_HOST);
 			// if (strtolower($page_ref_host) != $this->site->hostname) { $deny = true; }
-		}
-		if ( $deny ) {
+			if ( $deny ) {
 			wp_die( "403 Forbidden", "403 Forbidden", array( 'response'=>403, 'back_link'=>true ) );
 		}
 
